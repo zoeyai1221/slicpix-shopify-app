@@ -241,7 +241,7 @@ npm run deploy
 
 The app connects three systems to deliver interactive images to Shopify storefronts:
 
-![architecture](./screenshots/architecture-diagram.png)
+<img src="./screenshots/architecture-diagram.png" alt="architecture" width="700">
 
 **Three Core Components:**
 
@@ -380,7 +380,7 @@ The app serves two different audiences with different needs:
 
 **Shopper on Storefront**: Not authenticated - they're just browsing. The storefront can't call external APIs directly (security restriction). Instead, requests go through Shopify's [App Proxy](https://shopify.dev/docs/apps/online-store/app-proxies), which forwards them to our app with verified shop information.
 
-![access](./screenshots/access-pattern.png)
+<img src="./screenshots/access-pattern.png" alt="access" width="700">
 
 **Same Database, Different Entry Points**: Both paths access the same data. When a merchant selects an image in the theme editor, that selection is saved to the database. When a shopper views the page, the app proxy reads from the same database to serve the correct image.
 
@@ -390,7 +390,7 @@ The app serves two different audiences with different needs:
 
 When a merchant adds the "SVG Selector" block in the theme editor, the block needs to figure out what to show. This happens through a series of checks:
 
-![render](./screenshots/render-context.png)
+<img src="./screenshots/render-context.png" alt="render" width="700">
 
 ### How Design Mode Detection Works
 
