@@ -1,0 +1,455 @@
+{% comment %}
+  ============================================================================
+  SVG Selector Block
+  ============================================================================
+  This theme extension block allows merchants to select and display interactive
+  SVG images from their Slicpix library directly in the Shopify theme editor.
+  
+  Features:
+  - Displays selected SVG image on storefront
+  - In design mode: shows connection flow and image picker UI
+  - Persists selections via app metafields
+  
+  Usage:
+  - Add this block to any section in the theme editor
+  - Connect to Slicpix account if not already connected
+  - Select an SVG from the image picker grid
+  - Save selection to persist across page loads
+  ============================================================================
+{% endcomment %}
+
+{% schema %}
+{
+  "name": "SVG Selector",
+  "target": "section",
+  "settings": [
+    {
+      "type": "text",
+      "id": "block_label",
+      "label": "Label",
+      "placeholder": "e.g., Hero Banner"
+    }
+  ]
+}
+{% endschema %}
+
+{% comment %} Retrieve previously saved image selection from app metafields using block.id as key {% endcomment %}
+{% assign selected_image_id = app.metafields.image_selections[block.id] %}
+
+{% comment %} Main wrapper - section.id used for JavaScript scoping to avoid conflicts with multiple blocks {% endcomment %}
+<div class="svg-selector-wrapper" data-section-id="{{ section.id }}">
+  
+  {% comment %} Display area for the currently selected SVG image {% endcomment %}
+  <div class="current-selection">
+    {% if selected_image_id %}
+      {% comment %} Image exists - render placeholder, JS will load actual SVG content {% endcomment %}
+      <div class="selected-image" id="selected-image" data="{{selected_image_id}}">
+        Loading...
+      </div>
+    {% else %}
+      {% comment %} No image selected - show placeholder only in theme editor {% endcomment %}
+      {% if request.design_mode %}
+        <div class="no-selection">
+          <p>No image selected yet</p>
+        </div>
+      {% endif %}
+    {% endif %}
+  </div>
+
+  {% comment %} Design mode UI - only visible in Shopify theme editor, not on live storefront {% endcomment %}
+  {% if request.design_mode %}
+    <hr style="margin: 2rem 0; border: 1px solid #e5e5e5;">
+    
+    {% comment %} Container for all design-mode states: checking, login, OTP verification, connected {% endcomment %}
+    <div class="design-mode-controls">
+
+      {% comment %} State 1: Loading/checking connection status {% endcomment %}
+      <div id="state-checking" class="state-panel">
+        <div class="spinner"></div>
+        <p>Checking Slicpix connection...</p>
+      </div>
+
+      {% comment %} State 2: Email login form - shown when not connected {% endcomment %}
+      <div id="state-login" class="state-panel" style="display:none;">
+        <h3>Connect to Slicpix</h3>
+        <p>Enter your email to access your library.</p>
+        <div class="input-group">
+          <input type="email" id="sp-email" placeholder="name@company.com" />
+          <button id="btn-send-otp" class="primary-btn">Connect</button>
+        </div>
+        <p class="error-msg" id="login-error"></p>
+      </div>
+
+      {% comment %} State 3: OTP verification form - shown after email submission {% endcomment %}
+      <div id="state-otp" class="state-panel" style="display:none;">
+        <h3>Verify Identity</h3>
+        <p>We sent a code to your email. Enter it below (Try <strong>123456</strong>).</p>
+        <div class="input-group">
+          <input type="text" id="sp-otp" placeholder="123456" maxlength="6" />
+          <button id="btn-verify-otp" class="primary-btn">Verify</button>
+        </div>
+        <p class="error-msg" id="otp-error"></p>
+        <button class="link-btn" id="btn-back-login">Wrong email?</button>
+      </div>
+
+      {% comment %} State 4: Connected state - shows image picker grid {% endcomment %}
+      <div id="state-connected" class="state-panel" style="display:none;">
+        <div class="header-flex">
+          <span class="badge-connected">● Connected</span>
+          <button class="save-button primary-btn">Save Selection</button>
+        </div>
+        <div class="svg-loader">Loading icons...</div>
+        <div class="svg-grid"></div>
+      </div>
+
+    </div>
+  {% endif %}
+</div>
+
+<style>
+  /* --- Layout & Utilities --- */
+  .svg-selector-wrapper { padding: 1rem 0; margin: 1rem 0; }
+  .current-selection { text-align: center; padding: 1rem; min-height: 50px; }
+  .no-selection { text-align: center; padding: 2rem; background: #f9f9f9; border-radius: 8px; color: #666; border: 1px dashed #ccc; }
+  
+  /* --- Auth & States UI --- */
+  .state-panel { max-width: 400px; margin: 0 auto; text-align: center; padding: 1rem; }
+  .input-group { display: flex; gap: 10px; margin-top: 1rem; justify-content: center; }
+  .input-group input { padding: 8px; border: 1px solid #ddd; border-radius: 4px; flex-grow: 1; }
+  
+  .primary-btn { background: #2563eb; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; }
+  .primary-btn:hover { background: #1d4ed8; }
+  .link-btn { background: none; border: none; color: #666; text-decoration: underline; margin-top: 10px; cursor: pointer; font-size: 0.8rem; }
+  
+  .error-msg { color: #dc2626; font-size: 0.8rem; margin-top: 0.5rem; min-height: 1.2rem; }
+  .header-flex { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+  .badge-connected { color: #16a34a; font-size: 0.8rem; font-weight: bold; }
+
+  /* --- Grid (Existing Styles) --- */
+  .svg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 1rem; margin: 1rem 0; }
+  .svg-item { border: 2px solid #e5e5e5; padding: 0.75rem; cursor: pointer; transition: all 0.2s; text-align: center; border-radius: 8px; background: white; }
+  .svg-item:hover { border-color: #000; transform: scale(1.05); box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+  .svg-item.selected { border-color: #2563eb; background: #eff6ff; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1); }
+  .svg-item object { width: 60px; height: 60px; pointer-events: none; }
+  .svg-item p { margin-top: 0.5rem; font-size: 0.75rem; color: #666; }
+  
+  .selected-image object { width: 200px; height: 200px; }
+  
+  .spinner { border: 3px solid #f3f3f3; border-top: 3px solid #3498db; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; margin: 0 auto 10px auto; }
+  @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  
+  #btn-reset-sim:hover { background: #fee2e2 !important; }
+</style>
+
+<script>
+  (function() {
+    const currentShopId = {{ shop.id }};
+    const isDesignMode = {{ request.design_mode | json }};
+    const sectionId = '{{ section.id }}';
+    const wrapper = document.querySelector(`[data-section-id="${sectionId}"]`);
+    
+    if (!wrapper) return;
+
+    /**
+     * Backend API wrapper
+     * Communicates with the app proxy endpoint (/apps/proxy) for all data operations.
+     * Includes fallback mock data for development/testing scenarios.
+     */
+    const backendApi = {
+      // Fetch all available SVG images for the current shop
+      async getImages() {
+         return fetch('/apps/proxy?type=load-image').then(res => res.json()).catch(e => {
+             // Fallback mock data if API fails
+             return { images: [
+                 { id: '1', title: 'Blue Circle', svgHtml: '<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" fill="blue"/></svg>' },
+                 { id: '2', title: 'Red Rect', svgHtml: '<svg viewBox="0 0 100 100"><rect x="10" y="10" width="80" height="80" fill="red"/></svg>' }
+             ]};
+         });
+      },
+
+      // Check connection status and load context (images, selected image) for this block
+      async determineRenderContext(shopId, blockId) {
+        return fetch(`/apps/proxy?type=determine-render-context&shopId=${shopId}&blockId=${blockId}`).then(res => res.json()).catch(e => {
+          isConnected: false
+        });
+      },
+
+      // Initiate email connection - sends OTP to provided email
+      async connectEmail(email, shopId) {
+        return fetch(`/apps/proxy?type=connect-email&email=${email}&shopId=${shopId}`).then(res => res.json()).catch(e => {
+             return { success: false };
+         });
+      },
+
+      // Verify OTP code to complete connection
+      async verifyEmail(otp, shopId) {
+        return fetch(`/apps/proxy?type=verify-email&shopId=${shopId}&otp=${otp}`).then(res => res.json()).catch(e => {
+             return { success: false, message: 'Invalid code' };
+         });
+      },
+    };
+
+    /**
+     * UI Helper utilities for managing state panels and error messages
+     */
+    const ui = {
+      states: ['checking', 'login', 'otp', 'connected'],
+      // Show only the specified state panel, hide all others
+      showState(stateName) {
+        this.states.forEach(s => {
+          const el = wrapper.querySelector(`#state-${s}`);
+          if (el) el.style.display = (s === stateName) ? 'block' : 'none';
+        });
+      },
+      // Display error message in specified element
+      showError(id, msg) {
+        const el = wrapper.querySelector(`#${id}`);
+        if(el) el.textContent = msg;
+      }
+    };
+
+    // --- MAIN ENTRY POINT ---
+    // Always try to load previously selected image (works on storefront and editor)
+    loadSelectedImage();
+
+    // Only initialize design mode UI when in theme editor
+    if (isDesignMode) {
+      initDesignMode();
+    }
+
+    /**
+     * Initialize design mode - check connection and show appropriate UI state
+     */
+    async function initDesignMode() {
+      ui.showState('checking');
+      try {
+        const response = await backendApi.determineRenderContext(currentShopId, '{{ block.id }}');
+        console.log("kjdsfjklsflkdsf")
+        console.log(JSON.stringify(response))
+        const isConnected = response.isConnected;
+        const images = response.images;
+        const selectedImage = response.selectImage;
+        if (!isConnected) {
+          ui.showState('login');
+          setupAuthListeners();
+        } else if (!images || images.length === 0) {
+          alert('Welcome to SlicPix! Please create some photos in the gallery to begin!');
+        } else {
+          initializeImagePicker(images);
+          if (selectedImage) {
+
+          }
+          // TODO:
+        }
+      } catch (e) {
+        console.error("Connection check failed", e);
+        ui.showState('login');
+      }
+    }
+
+    /**
+     * Set up event listeners for authentication flow (email + OTP)
+     * Uses cloneNode pattern to prevent duplicate event bindings on re-initialization
+     */
+    function setupAuthListeners() {
+      const btnSend = wrapper.querySelector('#btn-send-otp');
+      // Clone and replace to remove any existing event listeners
+      const newBtnSend = btnSend.cloneNode(true); 
+      btnSend.parentNode.replaceChild(newBtnSend, btnSend);
+      
+      newBtnSend.addEventListener('click', async () => {
+        const email = wrapper.querySelector('#sp-email').value;
+        if(!email.includes('@')) return ui.showError('login-error', 'Invalid email');
+        
+        newBtnSend.textContent = 'Sending...';
+        // await mockBackendApi.sendOtp(email);
+        await backendApi.connectEmail(email, currentShopId);
+        ui.showState('otp');
+        newBtnSend.textContent = 'Connect';
+      });
+
+      const btnVerify = wrapper.querySelector('#btn-verify-otp');
+      const newBtnVerify = btnVerify.cloneNode(true);
+      btnVerify.parentNode.replaceChild(newBtnVerify, btnVerify);
+
+      newBtnVerify.addEventListener('click', async () => {
+        const otp = wrapper.querySelector('#sp-otp').value;
+        newBtnVerify.textContent = 'Verifying...';
+        
+        // const res = await mockBackendApi.verifyOtp(otp, currentShopId);
+        const res = await backendApi.verifyEmail(otp, currentShopId);
+        
+        if (res.success) {
+           initDesignMode();
+        } else {
+           ui.showError('otp-error', 'Invalid code. Try 123456');
+           newBtnVerify.textContent = 'Verify';
+        }
+      });
+      
+      const btnBack = wrapper.querySelector('#btn-back-login');
+      const newBtnBack = btnBack.cloneNode(true);
+      btnBack.parentNode.replaceChild(newBtnBack, btnBack);
+
+      newBtnBack.addEventListener('click', () => {
+        ui.showState('login');
+        ui.showError('login-error', '');
+      });
+    }
+    
+    // --- IMAGE PICKER LOGIC ---
+    let currentSelectedImage = null;  // Tracks currently selected image in the picker
+    const loader = wrapper.querySelector('.svg-loader');
+    const grid = wrapper.querySelector('.svg-grid');
+
+    /**
+     * Initialize the image picker grid with available images
+     * @param {Array} images - Array of image objects from the API
+     */
+    async function initializeImagePicker(images) {
+      ui.showState('connected');
+      
+      const saveBtn = wrapper.querySelector('.save-button');
+      if (saveBtn) {
+         // Prevent multiple bindings
+         const newSaveBtn = saveBtn.cloneNode(true);
+         saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
+         newSaveBtn.addEventListener('click', save);
+      }
+      
+      try {
+        let imagesToRender = images;
+        if (!images) {
+          const data = await backendApi.getImages();
+          imagesToRender = data/images;
+        }
+        if(loader) loader.style.display = 'none';
+        displayImages(imagesToRender);
+      } catch (error) {
+        if(loader) loader.textContent = 'Error loading icons.';
+      }
+    }
+
+    /**
+     * Render image grid with clickable SVG thumbnails
+     * @param {Array} images - Array of image objects to display
+     */
+    function displayImages(images) {
+      grid.innerHTML = '';
+      if (!images || !images.length) {
+        grid.innerHTML = '<p>No images found.</p>';
+        return;
+      }
+      images.forEach(image => {
+        const item = document.createElement('div');
+        item.className = 'svg-item';
+        
+        const objectEl = renderSvgImage(image, true);
+        const title = document.createElement('p');
+        title.textContent = image.title;
+        
+        item.appendChild(objectEl);
+        item.appendChild(title);
+        
+        item.addEventListener('click', () => selectImage(image, item));
+        grid.appendChild(item);
+      });
+    }
+
+    /**
+     * Handle image selection - update visual state and track selection
+     * @param {Object} image - The selected image object
+     * @param {HTMLElement} element - The clicked DOM element
+     */
+    function selectImage(image, element) {
+      wrapper.querySelectorAll('.svg-item').forEach(item => item.classList.remove('selected'));
+      element.classList.add('selected');
+      currentSelectedImage = image;
+    }
+
+    /**
+     * Save the current selection to the backend
+     * - Updates the preview display immediately
+     * - Sends POST to app proxy to persist in database and Shopify metafields
+     */
+    async function save() {
+      if (!currentSelectedImage) return;
+
+      let selectionContainer = wrapper.querySelector('.current-selection');
+      let targetDiv = wrapper.querySelector('#selected-image');
+      
+      if (!targetDiv) {
+        const noSel = wrapper.querySelector('.no-selection');
+        if(noSel) noSel.style.display = 'none';
+        
+        targetDiv = document.createElement('div');
+        targetDiv.className = 'selected-image';
+        targetDiv.id = 'selected-image';
+        selectionContainer.appendChild(targetDiv);
+      }
+
+      const elem = renderSvgImage(currentSelectedImage);
+      targetDiv.innerHTML = '';
+      targetDiv.appendChild(elem);
+      targetDiv.setAttribute('data', currentSelectedImage.id);
+
+      const saveBtn = wrapper.querySelector('.save-button');
+      saveBtn.textContent = 'Saving...';
+      
+      try {
+        await fetch(`/apps/proxy`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: "set-image",
+            blockId: '{{ block.id }}',
+            imageId: currentSelectedImage.id
+          })
+        });
+        console.log('Saved');
+      } catch(e) { console.error(e); }
+      
+      saveBtn.textContent = 'Save Selection';
+    }
+
+    /**
+     * Create an object element to render SVG content
+     * Uses Blob URLs for secure SVG rendering without XSS risks
+     * @param {Object} image - Image object with svgHtml and previewHtml
+     * @param {boolean} usePreview - If true, use smaller preview version for thumbnails
+     * @returns {HTMLObjectElement} - Object element ready to append to DOM
+     */
+    function renderSvgImage(image, usePreview = false) {
+      const objectEl = document.createElement('object');
+      objectEl.type = 'image/svg+xml';
+      const svgContent = usePreview ? (image.previewHtml || image.svgHtml) : image.svgHtml;
+      const svgBlob = new Blob([svgContent], { type: 'image/svg+xml' });
+      objectEl.data = URL.createObjectURL(svgBlob);
+      return objectEl;
+    }
+
+    /**
+     * Load and render the previously selected image on page load
+     * Called on both storefront and editor to display saved selection
+     */
+    async function loadSelectedImage() {
+      const selectedImageDiv = wrapper.querySelector('#selected-image');
+      if (!selectedImageDiv) return;
+      
+      const selectedImageId = selectedImageDiv.getAttribute("data");
+      if (!selectedImageId) return;
+      
+      try {
+        const imagesData = await backendApi.getImages(); 
+        const found = imagesData.images.find(img => img.id === selectedImageId);
+        if(found) {
+            const elem = renderSvgImage(found);
+            selectedImageDiv.innerHTML = '';
+            selectedImageDiv.appendChild(elem);
+        }
+      } catch (error) {
+        console.error('Error loading selected image:', error);
+      }
+    }
+  })();
+</script>
