@@ -134,19 +134,23 @@ See [Shopify's documentation](https://shopify.dev/changelog/detect-the-theme-edi
 
 #### Flow 1: First-Time Setup (Connecting Accounts)
 
-Before using the app, merchants must connect their Interactive Studio account to their Shopify store. This is a one-time setup.
+Before using the app, merchants must **connect** their Interactive Studio account to their Shopify store. This is a one-time setup.
 
 **Why this flow exists**: Interactive Studio is a separate platform with its own user accounts. We need to verify the merchant owns both the Shopify store and the Interactive Studio account.
 
 **Steps**:
 
-1. **Merchant opens the app** in Shopify Admin or adds SVG Selector block in theme editor
+1. **Merchant opens the app** in Shopify Admin or adds SVG Selector block in theme editor and **connect** 
+
+   (Note: the screenshot here shows the connection in Shopify Admin, you'll find more details of the connection in theme editor in [Flow 3: Placing an Image on the Storefront](#flow-3-placing-an-image-on-the-storefront))
+   ![Shopify Admin App](./screenshots/admin-app.png)
 
 2. **Merchant enters their Interactive Studio email**
 
 3. **System sends a verification code** to that email
 
 4. **Merchant enters the code** to prove they own the email
+   ![Shopify Admin Connect](./screenshots/admin-connect.png)
    
 **What happens behind the scenes**:
 - We store a `ConnectedStores` record linking the Shopify store ID to the verified email
@@ -157,7 +161,7 @@ Before using the app, merchants must connect their Interactive Studio account to
 #### Flow 2: Syncing Images from Interactive Studio
 
 Once connected, merchants can bring their interactive images into Shopify.
-
+   ![Shopify Admin Connect Success](./screenshots/admin-connect-success.png)
 **Why this flow exists**: Images are created in Interactive Studio, but need to be cached locally in the Shopify app for fast loading and offline availability.
 
 **Steps**:
@@ -184,16 +188,23 @@ This is the core use case - merchants placing interactive images on their store 
 
 **Steps**:
 
-1. **Merchant opens the Shopify theme editor** (Online Store > Themes > Customize)
+1. **Merchant opens the Shopify theme editor** (Online Store > Themes > Edit Themes)
+   ![Shopify Edit Store](./screenshots/edit-store.jpg)
 
 2. **Merchant adds the "SVG Selector" block** to any section
+   ![Shopify Storefront App](./screenshots/storefront-app.png)
+
+- **Note**: If not connected yet, you'll see a "Connect Account" prompt
+   - Follow the same email verification flow
+   - Once connected, your Interactive Studio gallery will appear 
+   ![Shopify Storefront Connect](./screenshots/storefront-connect.png)
  
 3. **The block shows current connection status** and image options
 
 4. **Merchant clicks to browse images** and selects one
 
 5. **Selected image appears in the preview** and saves with the theme
-
+   ![Shopify Storefront Img Selector](./screenshots/storefront-img-selector.png)
 
 **What happens behind the scenes**:
 - The theme block (Liquid) renders an iframe pointing to the app
@@ -206,6 +217,7 @@ This is the core use case - merchants placing interactive images on their store 
 #### Flow 4: Customer Viewing an Interactive Image
 
 When a customer visits the store, they see the interactive images.
+   ![Shopify View Store](./screenshots/view-store.png)
 
 **Why this flow exists**: This is the end result - customers experiencing the interactive content. At this point, liquid is obtaining the selected image index from Shopify and image CDN for lowest latency.
 
@@ -336,46 +348,32 @@ Before you begin, make sure you have:
    - In your development store admin, go to **Apps** → **zoey-app** → **Interactive Studio**
 
 2. **Click "Connect Account"**
-   
-   ![Shopify Admin App](./screenshots/admin-app.png)
 
 3. **Enter your Interactive Studio email**
 
 4. **Enter the verification code** sent to your email
-   
-   ![Shopify Admin Connect](./screenshots/admin-connect.png)
 
 5. **Connection successful!**
-   
-   ![Shopify Admin Connect Success](./screenshots/admin-connect-success.png)
 
 ##### Option B: Connect from Storefront (Theme Editor)
 
 1. **Open the Shopify theme editor**
    - In your store admin, go to **Online Store** → **Themes**
    - Click **Edit theme** on your active theme
-   
-   ![Shopify Edit Store](./screenshots/edit-store.jpg)
 
 2. **Add the SVG Selector block**
    - Click **Add section** or **Add block** (depending on where you want to place it)
    - Search for **"SVG Selector"** in the Apps picker
    - Add the block to your page
-   
-   ![Shopify Storefront App](./screenshots/storefront-app.png)
 
 3. **Connect your account directly from the block**
    - If not connected, you'll see a "Connect Account" prompt
    - Follow the same email verification flow
-   
-   ![Shopify Storefront Connect](./screenshots/storefront-connect.png)
 
 4. **Select an image**
    - Once connected, your Interactive Studio gallery will appear
    - Click on an image to select it
    - The image will appear in the theme editor preview
-   
-   ![Shopify Storefront Img Selector](./screenshots/storefront-img-selector.png)
 
 5. **Save your theme** to publish the changes
 
@@ -389,8 +387,6 @@ Before you begin, make sure you have:
    - Navigate to the page where you added the SVG Selector block
    - The interactive image will load with full functionality
    - Test hover effects, clickable regions, and animations
-   
-   ![Shopify View Store](./screenshots/view-store.png)
 
 #### Step 6: Testing Disconnection (Optional)
 
